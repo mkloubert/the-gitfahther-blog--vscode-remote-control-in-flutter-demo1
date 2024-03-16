@@ -32,6 +32,7 @@ const {
 	fs
 } = vscode.workspace;
 
+// representation of `openTextDocumentRequestBodySchema` schema
 interface IOpenTextDocumentRequestBody {
 	extension?: string | null;
 	text: string;
@@ -39,6 +40,7 @@ interface IOpenTextDocumentRequestBody {
 
 let app: any;
 
+// validation schema
 const openTextDocumentRequestBodySchema = {
 	type: 'object',
 	required: [
@@ -59,19 +61,26 @@ const TGF_PORT = Number(process.env.TGF_PORT?.trim() || '4000');
 export async function activate(context: vscode.ExtensionContext) {
 	const newApp = createServer();
 
+	// "open editor" endpoint
 	newApp.post(
 		'/api/v1/editors',
+
+		// parse input as JSON
+		// and validate
 		[
 			json(),
 			validateAjv(openTextDocumentRequestBodySchema),
 		],
+
 		async (request: any, response: any) => {
 			const body = request.body as IOpenTextDocumentRequestBody;
 
 			try {
+				// extract body data
 				const extension = body.extension?.trim() || undefined;
 				const textData = Buffer.from(body.text, 'utf8');
 
+				// get path for an unique tempfile
 				const tempFilePath = await (() => {
 					return new Promise<string>((resolve, reject) => {
 						tmp.file({
@@ -87,8 +96,11 @@ export async function activate(context: vscode.ExtensionContext) {
 				})();
 				const tempFileUri = vscode.Uri.file(tempFilePath);
 
+				// write using the VSCode filesystem API:
+				// https://code.visualstudio.com/api/extension-guides/virtual-documents
 				await fs.writeFile(tempFileUri, textData);
 
+				// open and show the temp file
 				await vscode.window.showTextDocument(tempFileUri);
 
 				response.writeHead(204, {
@@ -121,5 +133,6 @@ export async function activate(context: vscode.ExtensionContext) {
 }
 
 export async function deactivate() {
+	// close server
 	await app?.close();
 }
