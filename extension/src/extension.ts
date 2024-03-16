@@ -20,29 +20,106 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
+const {
+	createServer,
+	json,
+	validateAjv,
+} = require('@egomobile/http-server');
+import * as tmp from 'tmp';
 import * as vscode from 'vscode';
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
-export function activate(context: vscode.ExtensionContext) {
+const {
+	fs
+} = vscode.workspace;
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "vscode-rest-api-demo1" is now active!');
-
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	let disposable = vscode.commands.registerCommand('vscode-rest-api-demo1.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from vscode-rest-api-demo1!');
-	});
-
-	context.subscriptions.push(disposable);
+interface IOpenTextDocumentRequestBody {
+	extension?: string | null;
+	text: string;
 }
 
-// This method is called when your extension is deactivated
-export function deactivate() {}
+let app: any;
+
+const openTextDocumentRequestBodySchema = {
+	type: 'object',
+	required: [
+		"text"
+	],
+	properties: {
+		extension: {
+			type: ["string", "null"]
+		},
+		text: {
+			type: "string"
+		}
+	}
+};
+
+const TGF_PORT = Number(process.env.TGF_PORT?.trim() || '4000');
+
+export async function activate(context: vscode.ExtensionContext) {
+	const newApp = createServer();
+
+	newApp.post(
+		'/api/v1/editors',
+		[
+			json(),
+			validateAjv(openTextDocumentRequestBodySchema),
+		],
+		async (request: any, response: any) => {
+			const body = request.body as IOpenTextDocumentRequestBody;
+
+			try {
+				const extension = body.extension?.trim() || undefined;
+				const textData = Buffer.from(body.text, 'utf8');
+
+				const tempFilePath = await (() => {
+					return new Promise<string>((resolve, reject) => {
+						tmp.file({
+							postfix: extension ? `.${extension}` : undefined
+						}, (error, name) => {
+							if (error) {
+								reject(error);
+							} else {
+								resolve(name);
+							}
+						});
+					});
+				})();
+				const tempFileUri = vscode.Uri.file(tempFilePath);
+
+				await fs.writeFile(tempFileUri, textData);
+
+				await vscode.window.showTextDocument(tempFileUri);
+
+				response.writeHead(204, {
+					'Content-Type': 'text/plain; charset=UTF-8',
+					'Content-Length': '0'
+				});
+			} catch (error) {
+				const errorMessage = Buffer.from(
+					String(error), 'utf8'
+				);
+
+				if (!response.headersSent) {
+					response.writeHead(500, {
+						'Content-Type': 'text/plain; charset=UTF-8',
+						'Content-Length': String(errorMessage.length)
+					});
+				}
+
+				response.write(error);
+			} finally {
+				response.end();
+			}
+		}
+	);
+
+	app = newApp;
+	await newApp.listen(TGF_PORT);
+
+	vscode.window.showInformationMessage(`REST API now running on port ${newApp.port}`);
+}
+
+export async function deactivate() {
+	await app?.close();
+}

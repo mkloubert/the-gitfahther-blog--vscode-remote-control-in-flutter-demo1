@@ -9,7 +9,9 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -30,6 +32,7 @@
   "devDependencies": {
     "@types/mocha": "10.0.6",
     "@types/node": "18.x",
+    "@types/tmp": "0.2.6",
     "@types/vscode": "1.87.0",
     "@typescript-eslint/eslint-plugin": "7.0.2",
     "@typescript-eslint/parser": "7.0.2",
@@ -39,6 +42,7 @@
     "typescript": "5.3.3"
   },
   "dependencies": {
-    "@egomobile/http-server": "0.67.0"
+    "@egomobile/http-server": "0.67.0",
+    "tmp": "0.2.3"
   }
 }

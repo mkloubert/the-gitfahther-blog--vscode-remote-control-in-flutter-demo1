@@ -21,6 +21,7 @@
 // SOFTWARE.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/screens/home_screen.dart';
 
 void main() {
   runApp(const MainApp());
@@ -33,8 +34,8 @@ class MainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return const MaterialApp(
       home: Scaffold(
-        body: Center(
-          child: Text('Hello World!'),
+        body: SafeArea(
+          child: HomeScreen(),
         ),
       ),
     );
